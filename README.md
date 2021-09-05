@@ -33,3 +33,236 @@
 3. FCM 연결 서버는 토큰을 대상으로 알림 메시지를 푸시한다.
 
 
+#### 라이브러리 추가
+
+```Java
+/*build.gradle*/
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation 'androidx.appcompat:appcompat:1.1.0' //
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.3' //
+    implementation 'com.google.firebase:firebase-core:17.0.0'  //
+    implementation 'com.google.firebase:firebase-analytics:17.4.4'
+
+    implementation 'com.google.code.gson:gson:2.8.5' //
+    implementation 'com.squareup.okhttp3:okhttp:3.10.0' //
+
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-analytics'
+
+
+}
+
+```
+
+#### 메니패스트 추가
+
+사용할 서비스를 등록해준다.
+
+```Java
+/*AndroidMenifest.xml*/
+
+        <service android:name="bias.zochiwon_suhodae.homemade_guardian_beta.Main.common.MyFirebaseMessagingService"
+            android:enabled="true"
+            android:exported="true"
+            android:stopWithTask="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
+            </intent-filter>
+
+        </service>
+
+```
+
+#### MyFirebaseMessagingService 추가
+
+onMessageReceived 에서 메세지를 수신하여 sendNotification 메소드에 보내줌으로써 노티피케이션을 발생시킨다.
+
+```Java
+/*MyFirebaseMessagingService.java*/
+
+class MyFirebaseMessagingService : FirebaseMessagingService() {
+    private val TAG = "FirebaseTest"
+
+    // 메세지가 수신되면 호출
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        if(remoteMessage.data.isNotEmpty()){
+            sendNotification(remoteMessage.notification?.title,
+                remoteMessage.notification?.body!!)
+        }
+        else{
+
+        }
+    }
+
+    // Firebase Cloud Messaging Server 가 대기중인 메세지를 삭제 시 호출
+    override fun onDeletedMessages() {
+        super.onDeletedMessages()
+    }
+
+    // 메세지가 서버로 전송 성공 했을때 호출
+    override fun onMessageSent(p0: String) {
+        super.onMessageSent(p0)
+    }
+
+    // 메세지가 서버로 전송 실패 했을때 호출
+    override fun onSendError(p0: String, p1: Exception) {
+        super.onSendError(p0, p1)
+    }
+
+    // 새로운 토큰이 생성 될 때 호출
+    override fun onNewToken(token: String) {
+        super.onNewToken(token)
+        sendRegistrationToServer(token)
+    }
+
+    private fun sendNotification(title: String?, body: String){
+        val intent = Intent(this,MainActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP) // 액티비티 중복 생성 방지
+        val pendingIntent = PendingIntent.getActivity(this, 0 , intent,
+            PendingIntent.FLAG_ONE_SHOT) // 일회성
+
+        val channelId = "channel" // 채널 아이디
+        val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) // 소리
+        val notificationBuilder = NotificationCompat.Builder(this, channelId)
+            .setContentTitle(title) // 제목
+            .setContentText(body) // 내용
+            .setAutoCancel(true)
+            .setSound(defaultSoundUri)
+            .setContentIntent(pendingIntent)
+
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // 오레오 버전 예외처리
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(channelId,
+                "Channel human readable title",
+                NotificationManager.IMPORTANCE_DEFAULT)
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        notificationManager.notify(0 , notificationBuilder.build()) // 알림 생성
+    }
+
+    // 받은 토큰을 서버로 전송
+    private fun sendRegistrationToServer(token: String){
+
+    }
+}
+
+```
+
+#### SendNotification 추가
+
+```Java
+/*SendNotification.java*/
+
+public class SendNotification {
+    public static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+    public static void sendNotification(final String regToken, final String title, final String messsage){
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... parms) {
+                try {
+                    OkHttpClient client = new OkHttpClient();
+                    JSONObject json = new JSONObject();
+                    JSONObject dataJson = new JSONObject();
+                    dataJson.put("body", messsage);
+                    dataJson.put("title", title);
+                    json.put("notification", dataJson);
+                    json.put("to", regToken);
+                    RequestBody body = RequestBody.create(JSON, json.toString());
+                    Request request = new Request.Builder()
+                            .header("Authorization", "key=" + "AAAAwOrSSfQ:APA91bG5atF_mkGFr_DdlIOTvA4BjXvZJ4cyuQOlNK_AOQNzaJyfBDeTYkhP6pVKXYrHsllc2QZNJKfx5pq46I290MMQd6wHzx5pVWJzfKFuv2FYia4sW_BQicqqDBRzQ7QcpjEyK9qT")
+                            .url("https://fcm.googleapis.com/fcm/send")
+                            .post(body)
+                            .build();
+                    Response response = client.newCall(request).execute();
+                    String finalResponse = response.body().string();
+                }catch (Exception e){
+                    Log.d("error", e+"");
+                }
+                return  null;
+            }
+        }.execute();
+    }
+    public static void sendCommentNotification(final String regToken, final String title, final String messsage, final String Marketmodel_Uid){
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... parms) {
+                try {
+                    OkHttpClient client = new OkHttpClient();
+                    JSONObject json = new JSONObject();
+                    JSONObject dataJson = new JSONObject();
+                    dataJson.put("body", messsage);
+                    dataJson.put("title", title);
+                    dataJson.put("tag", Marketmodel_Uid);
+                    json.put("notification", dataJson);
+                    json.put("to", regToken);
+                    json.put("tag", Marketmodel_Uid);
+                    RequestBody body = RequestBody.create(JSON, json.toString());
+                    Request request = new Request.Builder()
+                            .header("Authorization", "key=" + "AAAAwOrSSfQ:APA91bG5atF_mkGFr_DdlIOTvA4BjXvZJ4cyuQOlNK_AOQNzaJyfBDeTYkhP6pVKXYrHsllc2QZNJKfx5pq46I290MMQd6wHzx5pVWJzfKFuv2FYia4sW_BQicqqDBRzQ7QcpjEyK9qT")
+                            .url("https://fcm.googleapis.com/fcm/send")
+                            .post(body)
+                            .build();
+                    Response response = client.newCall(request).execute();
+                    String finalResponse = response.body().string();
+                }catch (Exception e){
+                    Log.d("error", e+"");
+                }
+                return  null;
+            }
+        }.execute();
+    }
+}
+
+```
+#### 클래스에 기능 추가
+
+해당 기능에서 현재 메세지를 받을 유저의 token을 DB에서 찾아  SendNotification를 통해 받을유저의 token, 보내는 사람의 닉네임, body부분을 보내줍니다.
+
+```Java
+/*ChatFragment.java*/
+    .
+    .
+    private void sendGson(final String MessageModel_Message) {
+        final DocumentReference documentReference = FirebaseFirestore.getInstance().collection("USERS").document(currentUser_Uid);
+        documentReference.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot document = task.getResult();
+                    if (document != null) {
+                        if (document.exists()) {  //데이터의 존재여부
+                            final UserModel userModel = document.toObject(UserModel.class);
+                            final DocumentReference documentReference = FirebaseFirestore.getInstance().collection("USERS").document(To_User_Uid);
+                            documentReference.get().addOnCompleteListener(new OnCompleteListener<DocumentSnapshot>() {
+                                @Override
+                                public void onComplete(@NonNull Task<DocumentSnapshot> task) {
+                                    if (task.isSuccessful()) {
+                                        DocumentSnapshot document = task.getResult();
+                                        if (document != null) {
+                                            if (document.exists()) {  //데이터의 존재여부
+                                                UserModel TouserModel = document.toObject(UserModel.class);
+                                                //SendNotification.sendNotification(TouserModel.getUserModel_Token(), userModel.getUserModel_NickName(), MessageModel_Message);
+                                                SendNotification.sendCommentNotification(TouserModel.getUserModel_Token(), userModel.getUserModel_NickName(), "메세지가 도착했습니다!",ChatRoomListModel_RoomUid);
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+        });
+
+    }
+    .
+    .
+
+```
