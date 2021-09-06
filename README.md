@@ -79,7 +79,7 @@ dependencies {
 
 #### MyFirebaseMessagingService 추가
 
-onMessageReceived 에서 메세지를 수신하여 sendNotification 메소드에 보내줌으로써 노티피케이션을 발생시킨다.
+onMessageReceived 에서 메세지를 수신하여 sendNotification 메소드에 보내줌으로써 노티피케이션을 발생시킵니다.
 
 ```Java
 /*MyFirebaseMessagingService.java*/
